@@ -9,5 +9,10 @@
   },
   "devDependencies": {
     "wrangler": "^3.0.0"
+  },
+  "dependencies": {
+    "@planetscale/database": "^1.13.0",
+    "itty-router": "^4.0.23",
+    "joi": "^17.11.0"
   }
 }
