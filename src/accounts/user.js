@@ -33,7 +33,7 @@ async function handleRequest(request, env) {
 async function handleGetRequest(request, conn) {
 	const url = new URL(request.url);
 	const email = url.searchParams.get('email');
-	const data = await conn.execute('SELECT * FROM ToDoUsers where UserEmail = ?; ', [email]);
+	const data = await conn.execute('SELECT * FROM MyExpenseUser where UserEmail = ?; ', [email]);
 	if (data.error) {
 		return new Response(data.error, {
 			headers: {
@@ -54,7 +54,7 @@ async function handleGetRequest(request, conn) {
 			},
 		});
 	}
-	const result = await conn.execute('SELECT * FROM ToDoUsers WHERE UserEmail = ?;', [email]);
+	const result = await conn.execute('SELECT * FROM MyExpenseUser WHERE UserEmail = ?;', [email]);
 
 	if (result.error) {
 		return new Response(data.error, {
@@ -80,12 +80,12 @@ async function handlePostRequest(request, conn) {
 		const name = url.searchParams.get('name');
 
 		// Check if the user already exists
-		const userExists = await conn.execute('SELECT * FROM ToDoUsers WHERE UserEmail = ?;', [email]);
+		const userExists = await conn.execute('SELECT * FROM MyExpenseUser WHERE UserEmail = ?;', [email]);
 
 		if (userExists.rows.length > 0) {
-			await conn.execute('UPDATE ToDoUsers SET UserName = ? WHERE UserEmail = ?;', [name, email]);
+			await conn.execute('UPDATE MyExpenseUser SET UserName = ? WHERE UserEmail = ?;', [name, email]);
 
-			const userData = await conn.execute('SELECT * FROM ToDoUsers WHERE UserEmail = ?;', [email]);
+			const userData = await conn.execute('SELECT * FROM MyExpenseUser WHERE UserEmail = ?;', [email]);
 
 			return new Response(JSON.stringify(userData.rows[0]), {
 				headers: {
@@ -104,7 +104,7 @@ async function handlePostRequest(request, conn) {
 			date: new Date(),
 		};
 
-		const data = await conn.execute('INSERT INTO ToDoUsers (UserName, UserEmail, RegistrationDate) VALUES (?, ?, ?);', [
+		const data = await conn.execute('INSERT INTO MyExpenseUser (UserName, UserEmail, RegistrationDate) VALUES (?, ?, ?);', [
 			newUser.name,
 			newUser.email,
 			newUser.date,
@@ -122,7 +122,7 @@ async function handlePostRequest(request, conn) {
 		}
 
 		// Fetch and return the inserted user data
-		const insertedUserData = await conn.execute('SELECT * FROM ToDoUsers WHERE UserEmail = ?;', [newUser.email]);
+		const insertedUserData = await conn.execute('SELECT * FROM MyExpenseUser WHERE UserEmail = ?;', [newUser.email]);
 
 		if (insertedUserData.error) {
 			return new Response(insertedUserData.error, {
