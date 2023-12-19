@@ -28,6 +28,7 @@ async function handleCategoryRequest(request, env) {
 			});
 	}
 }
+
 async function handleCreateCategoryRequest(request, conn) {
 	try {
 		const url = new URL(request.url);
@@ -36,23 +37,56 @@ async function handleCreateCategoryRequest(request, conn) {
 		const userId = parseInt(url.searchParams.get('userId'));
 		const categoryColor = url.searchParams.get('categoryColor');
 		const category_budget = parseInt(url.searchParams.get('category_budget') || '0');
+		const edit = parseInt(url.searchParams.get('edit') || '0');
 
 		// Checking if the category already exists for the user
 		const existingCategories = await conn.execute('SELECT * FROM ExpenseCategory WHERE expense_category = ? AND userId = ?;', [
 			expense_category,
 			userId,
 		]);
-       const rows = existingCategories.rows;
+		const rows = existingCategories.rows;
+
 		if (!rows || rows.length > 0) {
-			
-			return new Response('Category already exists', {
-				status: 202, // Accepted
-				headers: {
-					'content-type': 'text/plain',
-					'Access-Control-Allow-Origin': '*',
-					'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-				},
-			});
+			if (edit === 1) {
+				const updateResult = await conn.execute(
+					'UPDATE ExpenseCategory SET category_description = ?, categoryColor = ?, category_budget = ? WHERE expense_category = ? AND userId = ?;',
+					[category_description, categoryColor, category_budget, expense_category, userId]
+				);
+
+				if (updateResult.error) {
+					return new Response(updateResult.error, {
+						headers: {
+							'content-type': 'text/plain',
+							'Access-Control-Allow-Origin': '*',
+							'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+						},
+						status: 500, // Internal Server Error
+					});
+				}
+
+				const updatedCategories = await conn.execute('SELECT * FROM ExpenseCategory WHERE expense_category = ? AND userId = ?;', [
+					expense_category,
+					userId,
+				]);
+
+				return new Response(JSON.stringify(updatedCategories.rows), {
+					status: 200,
+					headers: {
+						'content-type': 'application/json',
+						'Access-Control-Allow-Origin': '*',
+						'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+					},
+				});
+			} else {
+				return new Response('Category already exists', {
+					status: 202, // Accepted
+					headers: {
+						'content-type': 'text/plain',
+						'Access-Control-Allow-Origin': '*',
+						'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+					},
+				});
+			}
 		}
 
 		const insertResult = await conn.execute(
@@ -90,6 +124,7 @@ async function handleCreateCategoryRequest(request, conn) {
 		});
 	}
 }
+
 async function handleGetCategoryRequest(request, conn) {
 	try {
 		const url = new URL(request.url);
