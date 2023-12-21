@@ -31,7 +31,8 @@ async function handleExpenseRequest(request, env) {
 			const expense_category = url.searchParams.get('expense_category');
 			const expense_amount = parseInt(url.searchParams.get('expense_amount'));
 			const expense_desc = url.searchParams.get('expense_desc');
-			const star_marked = url.searchParams.get('star_marked').toLowerCase() === 'true';
+			let star_marked_param = url.searchParams.get('star_marked');
+			const star_marked = star_marked_param ? star_marked_param.toLowerCase() === 'true' : false;
 
 			const expense_creation_date = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
