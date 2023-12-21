@@ -14,7 +14,7 @@ router.post('/user', (request, env) => handleRequest(request, env));
 router.get('/event', (request, env) => handleExpenseRequest(request, env));
 router.post('/event', (request, env) => handleExpenseRequest(request, env));
 
-// Add Expenses Event Routes
+// Add Expenses Category Routes
 router.get('/category', (request, env) => handleCategoryRequest(request, env));
 router.post('/category', (request, env) => handleCategoryRequest(request, env));
 
