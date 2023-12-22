@@ -2,6 +2,7 @@ import { Router } from 'itty-router';
 import handleRequest from './accounts/user.js';
 import handleExpenseRequest from './event/expenseEvent.js';
 import handleCategoryRequest from './category/expenseCategory.js';
+import handleTaskRequest from './tasks/task.js';
 
 const corsHeaders = {
 	'Access-Control-Allow-Origin': '*',
@@ -21,6 +22,11 @@ router.post('/user', (request, env) => handleRequest(request, env));
 router.get('/event', (request, env) => handleExpenseRequest(request, env));
 router.post('/event', (request, env) => handleExpenseRequest(request, env));
 router.delete('/event', (request, env) => handleExpenseRequest(request, env));
+
+// Add Task Routes
+router.get('/task', (request, env) => handleTaskRequest(request, env));
+router.post('/task', (request, env) => handleTaskRequest(request, env));
+router.delete('/task', (request, env) => handleTaskRequest(request, env));
 
 // Add Expenses Category Routes
 router.get('/category', (request, env) => handleCategoryRequest(request, env));

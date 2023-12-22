@@ -1,6 +1,6 @@
 import { connect } from '@planetscale/database';
 
-async function handleExpenseRequest(request, env) {
+async function handleTaskRequest(request, env) {
 	const config = {
 		host: env.DATABASE_HOST,
 		username: env.DATABASE_USERNAME,
@@ -14,23 +14,26 @@ async function handleExpenseRequest(request, env) {
 
 	switch (request.method) {
 		case 'GET':
-			return handleGetExpense(request, conn);
+			return handleGetTasks(request, conn);
 		case 'POST':
-			return handlePostExpenseEntry(request, conn);
+			return handlePostTaskEntry(request, conn);
 		case 'DELETE':
-			return handleDeleteExpense(request, conn);
+			return handleDeleteTask(request, conn);
 		default:
 			return new Response('Invalid request method', {
 				headers: { 'content-type': 'text/plain' },
 				status: 400, // Bad Request
 			});
 	}
-	async function handleGetExpense(request, conn) {
+	async function handleGetTasks(request, conn) {
 		try {
 			const url = new URL(request.url);
 			const userId = url.searchParams.get('userId');
-			const expense_category = url.searchParams.get('expense_category');
+			const task_category = url.searchParams.get('task_category');
 			const count = url.searchParams.get('count');
+			const search_str = url.searchParams.get('search_str');
+			const time_range = url.searchParams.get('time_range');
+			const sort_priority = url.searchParams.get('sort_priority');
 
 			if (!userId) {
 				return new Response('Missing user id', {
@@ -43,24 +46,62 @@ async function handleExpenseRequest(request, env) {
 				});
 			}
 
-			let sqlQuery = `SELECT * FROM ExpenseEntry WHERE userId = ? `;
+			let sqlQuery = `SELECT * FROM TaskEntry WHERE userId = ? `;
 			let queryParams = [userId];
 
-			if (expense_category) {
-				sqlQuery += 'AND expense_category = ? ';
-				queryParams.push(expense_category);
+			// Text Search
+			if (search_str) {
+				sqlQuery += 'AND task_title LIKE ? ';
+				queryParams.push('%' + search_str + '%');
 			}
 
-			sqlQuery += 'ORDER BY expense_creation_date DESC ';
+			// Task Category Filtering
+			if (task_category) {
+				sqlQuery += 'AND task_category = ? ';
+				queryParams.push(task_category);
+			}
+
+			// Time Range Filtering
+			if (time_range) {
+				let startDate = new Date();
+				let endDate = new Date();
+				startDate.setHours(startDate.getHours() - 24); // Start from 24 hours ago
+				switch (time_range.toLowerCase()) {
+					case 'today':
+						endDate.setHours(endDate.getHours() + 24); // 24 hours from last 24 hours, i.e., today
+						break;
+					case 'tomorrow':
+						endDate.setHours(endDate.getHours() + 48); // 48 hours from last 24 hours
+						break;
+					case 'this_week':
+						endDate.setHours(endDate.getHours() + 24 * 7); // 1 week from last 24 hours
+						break;
+					case 'this_month':
+						endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, startDate.getDate(), startDate.getHours()); // 1 month from last 24 hours
+						break;
+					default:
+						break;
+				}
+				sqlQuery += 'AND task_date BETWEEN ? AND ? ';
+				queryParams.push(startDate.toISOString().slice(0, 19).replace('T', ' '), endDate.toISOString().slice(0, 19).replace('T', ' '));
+			}
+
+			// Sorting
+			sqlQuery += 'ORDER BY ';
+			if (sort_priority) {
+				sqlQuery += 'task_priority DESC, ';
+			}
+			sqlQuery += 'task_creation_date DESC ';
+
 			if (count) {
 				sqlQuery += 'LIMIT ?';
 				queryParams.push(parseInt(count));
 			}
 
-			const expensesResult = await conn.execute(sqlQuery, queryParams);
+			const tasksResult = await conn.execute(sqlQuery, queryParams);
 
-			if (expensesResult.error) {
-				return new Response(expensesResult.error, {
+			if (tasksResult.error) {
+				return new Response(tasksResult.error, {
 					headers: {
 						'content-type': 'application/json',
 						'Access-Control-Allow-Origin': '*',
@@ -70,7 +111,7 @@ async function handleExpenseRequest(request, env) {
 				});
 			}
 
-			return new Response(JSON.stringify(expensesResult.rows), {
+			return new Response(JSON.stringify(tasksResult.rows), {
 				status: 200,
 				headers: {
 					'content-type': 'application/json',
@@ -89,25 +130,24 @@ async function handleExpenseRequest(request, env) {
 			});
 		}
 	}
-	async function handlePostExpenseEntry(request, conn) {
+	async function handlePostTaskEntry(request, conn) {
 		try {
 			const url = new URL(request.url);
-			const expense_title = url.searchParams.get('expense_title');
+			const task_title = url.searchParams.get('task_title');
 			const userId = url.searchParams.get('userId');
-			const expense_category = url.searchParams.get('expense_category');
-			const expense_amount = parseInt(url.searchParams.get('expense_amount'));
-			const expense_desc = url.searchParams.get('expense_desc');
-			let star_marked_param = url.searchParams.get('star_marked');
-			const star_marked = star_marked_param ? star_marked_param.toLowerCase() === 'true' : false;
+			const task_category = url.searchParams.get('task_category');
+			const task_priority = parseInt(url.searchParams.get('task_priority'));
+			const task_date = url.searchParams.get('task_date');
+			const task_desc = url.searchParams.get('task_desc');
 
-			let expense_creation_date = new Date();
-			expense_creation_date.setHours(expense_creation_date.getHours() + 5);
-			expense_creation_date.setMinutes(expense_creation_date.getMinutes() + 30);
-			expense_creation_date = expense_creation_date.toISOString().slice(0, 19).replace('T', ' ');
-			
+			let task_creation_date = new Date();
+			task_creation_date.setHours(task_creation_date.getHours() + 5);
+			task_creation_date.setMinutes(task_creation_date.getMinutes() + 30);
+			task_creation_date = task_creation_date.toISOString().slice(0, 19).replace('T', ' ');
+
 			const insertResult = await conn.execute(
-				'INSERT INTO ExpenseEntry (expense_title, expense_creation_date, expense_category, expense_amount, expense_desc, star_marked, userId) VALUES (?, ?, ?, ?, ?, ?, ?);',
-				[expense_title, expense_creation_date, expense_category, expense_amount, expense_desc, star_marked, userId]
+				'INSERT INTO TaskEntry (task_title, task_creation_date, task_category, task_priority, task_date, task_desc, userId) VALUES (?, ?, ?, ?, ?, ?, ?);',
+				[task_title, task_creation_date, task_category, task_priority, task_date, task_desc, userId]
 			);
 
 			if (insertResult.error) {
@@ -121,7 +161,7 @@ async function handleExpenseRequest(request, env) {
 				});
 			}
 
-			return new Response('Expense entry was added successfully', {
+			return new Response('Task entry was added successfully', {
 				status: 200,
 				headers: {
 					'content-type': 'text/plain',
@@ -140,13 +180,13 @@ async function handleExpenseRequest(request, env) {
 			});
 		}
 	}
-	async function handleDeleteExpense(request, conn) {
+	async function handleDeleteTask(request, conn) {
 		try {
 			const url = new URL(request.url);
-			const expense_id = url.searchParams.get('expense_id'); // Get the id from URL parameters
+			const task_id = url.searchParams.get('task_id'); // Get the id from URL parameters
 
-			if (!expense_id) {
-				return new Response('Missing Expense id', {
+			if (!task_id) {
+				return new Response('Missing task id', {
 					headers: {
 						'content-type': 'text/plain',
 						'Access-Control-Allow-Origin': '*',
@@ -156,7 +196,7 @@ async function handleExpenseRequest(request, env) {
 				});
 			}
 
-			const deleteResult = await conn.execute('DELETE FROM ExpenseEntry WHERE expense_id = ?;', [expense_id]);
+			const deleteResult = await conn.execute('DELETE FROM TaskEntry WHERE task_id = ?;', [task_id]);
 
 			if (deleteResult.error) {
 				return new Response(deleteResult.error, {
@@ -170,7 +210,7 @@ async function handleExpenseRequest(request, env) {
 			}
 
 			if (deleteResult.affectedRows === 0) {
-				return new Response('No Expense Entry found with id: ' + id, {
+				return new Response('No task entry was found with id: ' + id, {
 					headers: {
 						'content-type': 'text/plain',
 						'Access-Control-Allow-Origin': '*',
@@ -180,7 +220,7 @@ async function handleExpenseRequest(request, env) {
 				});
 			}
 
-			return new Response('Expense Entry was deleted successfully', {
+			return new Response('Task entry was deleted successfully', {
 				status: 200,
 				headers: {
 					'content-type': 'text/plain',
@@ -201,4 +241,4 @@ async function handleExpenseRequest(request, env) {
 	}
 }
 
-export default handleExpenseRequest;
+export default handleTaskRequest;
