@@ -14,14 +14,80 @@ async function handleExpenseRequest(request, env) {
 
 	switch (request.method) {
 		case 'GET':
-			return handleDeleteExpense(request, conn);
+			return handleGetExpense(request, conn);
 		case 'POST':
 			return handlePostExpenseEntry(request, conn);
+		case 'DELETE':
+			return handleDeleteExpense(request, conn);
 		default:
 			return new Response('Invalid request method', {
 				headers: { 'content-type': 'text/plain' },
 				status: 400, // Bad Request
 			});
+	}
+	async function handleGetExpense(request, conn) {
+		try {
+			const url = new URL(request.url);
+			const userId = url.searchParams.get('userId');
+			const expense_category = url.searchParams.get('expense_category');
+			const count = url.searchParams.get('count');
+
+			if (!userId) {
+				return new Response('Missing user id', {
+					headers: {
+						'content-type': 'text/plain',
+						'Access-Control-Allow-Origin': '*',
+						'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+					},
+					status: 400,
+				});
+			}
+
+			let sqlQuery = `SELECT * FROM ExpenseEntry WHERE userId = ? `;
+			let queryParams = [userId];
+
+			if (expense_category) {
+				sqlQuery += 'AND expense_category = ? ';
+				queryParams.push(expense_category);
+			}
+
+			sqlQuery += 'ORDER BY expense_creation_date DESC ';
+			if (count) {
+				sqlQuery += 'LIMIT ?';
+				queryParams.push(parseInt(count));
+			}
+
+			const expensesResult = await conn.execute(sqlQuery, queryParams);
+
+			if (expensesResult.error) {
+				return new Response(expensesResult.error, {
+					headers: {
+						'content-type': 'application/json',
+						'Access-Control-Allow-Origin': '*',
+						'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+					},
+					status: 500,
+				});
+			}
+
+			return new Response(JSON.stringify(expensesResult.rows), {
+				status: 200,
+				headers: {
+					'content-type': 'application/json',
+					'Access-Control-Allow-Origin': '*',
+					'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+				},
+			});
+		} catch (error) {
+			return new Response(error + '\n' + request, {
+				headers: {
+					'content-type': 'text/plain',
+					'Access-Control-Allow-Origin': '*',
+					'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+				},
+				status: 500,
+			});
+		}
 	}
 	async function handlePostExpenseEntry(request, conn) {
 		try {
@@ -77,7 +143,7 @@ async function handleExpenseRequest(request, env) {
 			const expense_id = url.searchParams.get('expense_id'); // Get the id from URL parameters
 
 			if (!expense_id) {
-				return new Response('Missing Expense Entry id', {
+				return new Response('Missing Expense id', {
 					headers: {
 						'content-type': 'text/plain',
 						'Access-Control-Allow-Origin': '*',
